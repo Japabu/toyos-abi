@@ -111,6 +111,7 @@ pub enum SyscallError {
     InvalidArgument = 4,
     BadAddress = 5,
     WouldBlock = 6,
+    ResourceExhausted = 7,
 }
 
 impl SyscallError {
@@ -131,6 +132,7 @@ impl SyscallError {
             4 => Some(Self::InvalidArgument),
             5 => Some(Self::BadAddress),
             6 => Some(Self::WouldBlock),
+            7 => Some(Self::ResourceExhausted),
             _ => Some(Self::Unknown),
         }
     }
@@ -146,6 +148,7 @@ impl core::fmt::Display for SyscallError {
             Self::InvalidArgument => f.write_str("invalid argument"),
             Self::BadAddress => f.write_str("bad address"),
             Self::WouldBlock => f.write_str("would block"),
+            Self::ResourceExhausted => f.write_str("resource exhausted"),
         }
     }
 }
@@ -215,6 +218,8 @@ impl OpenFlags {
     pub const CREATE: Self = Self(4);
     pub const TRUNCATE: Self = Self(8);
     pub const APPEND: Self = Self(16);
+
+    pub const fn contains(self, flag: Self) -> bool { self.0 & flag.0 != 0 }
 }
 
 impl core::ops::BitOr for OpenFlags {
