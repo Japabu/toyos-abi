@@ -1,9 +1,7 @@
 // Syscall numbers (must match kernel dispatch table)
 pub const SYS_WRITE: u64 = 0;
 pub const SYS_READ: u64 = 1;
-pub const SYS_ALLOC: u64 = 2;
-pub const SYS_FREE: u64 = 3;
-pub const SYS_REALLOC: u64 = 4;
+// Syscall numbers 2-4 are unused (formerly SYS_ALLOC/FREE/REALLOC).
 pub const SYS_THREAD_EXIT: u64 = 5;
 pub const SYS_RANDOM: u64 = 6;
 pub const SYS_SCREEN_SIZE: u64 = 7;
@@ -338,32 +336,6 @@ pub fn read(fd: Fd, buf: &mut [u8]) -> Result<usize, SyscallError> {
     check(syscall(SYS_READ, fd.0 as u64, buf.as_mut_ptr() as u64, buf.len() as u64, 0)).map(|n| n as usize)
 }
 
-// --- Memory ---
-
-/// Allocate `size` bytes with `align` alignment.
-///
-/// # Safety
-/// Caller must use the correct size/align when freeing the returned pointer.
-pub unsafe fn alloc(size: usize, align: usize) -> *mut u8 {
-    core::ptr::with_exposed_provenance_mut(syscall(SYS_ALLOC, size as u64, align as u64, 0, 0) as usize)
-}
-
-/// Free an allocation at `ptr` with original `size` and `align`.
-///
-/// # Safety
-/// `ptr` must have been returned by `alloc` or `realloc` with matching `size` and `align`.
-pub unsafe fn free(ptr: *mut u8, size: usize, align: usize) {
-    syscall(SYS_FREE, ptr as u64, size as u64, align as u64, 0);
-}
-
-/// Reallocate `ptr` (with original `size`/`align`) to `new_size`.
-///
-/// # Safety
-/// `ptr` must have been returned by `alloc` or `realloc` with matching `size` and `align`.
-pub unsafe fn realloc(ptr: *mut u8, size: usize, align: usize, new_size: usize) -> *mut u8 {
-    core::ptr::with_exposed_provenance_mut(syscall(SYS_REALLOC, ptr as u64, size as u64, align as u64, new_size as u64) as usize)
-}
-
 // --- Process ---
 
 /// Exit the current thread only. Does not return.
@@ -439,17 +411,19 @@ pub fn thread_join(tid: u64) -> u64 {
 /// Send a message to process `target_pid`.
 ///
 /// # Safety
-/// `msg_ptr` must point to a valid `ReceivedMessage`-layout struct.
+/// `msg_ptr` must point to a valid `RawMessage`-layout struct.
 pub unsafe fn send_msg(target_pid: u64, msg_ptr: u64) -> u64 {
     syscall(SYS_SEND_MSG, target_pid, msg_ptr, 0, 0)
 }
 
-/// Receive a message into the buffer at `msg_ptr`.
+/// Receive a message. The kernel fills `msg_ptr` (a `RawMessage`) with
+/// metadata and copies the payload into `buf_ptr[..buf_len]`.
 ///
 /// # Safety
-/// `msg_ptr` must point to a valid, writable `ReceivedMessage`-layout struct.
-pub unsafe fn recv_msg(msg_ptr: u64) -> u64 {
-    syscall(SYS_RECV_MSG, msg_ptr, 0, 0, 0)
+/// `msg_ptr` must point to a valid, writable `RawMessage`.
+/// `buf_ptr` must point to `buf_len` writable bytes.
+pub unsafe fn recv_msg(msg_ptr: u64, buf_ptr: u64, buf_len: u64) -> u64 {
+    syscall(SYS_RECV_MSG, msg_ptr, buf_ptr, buf_len, 0)
 }
 
 // --- Filesystem ---
