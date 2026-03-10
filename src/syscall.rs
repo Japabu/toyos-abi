@@ -77,6 +77,7 @@ pub const SYS_NIC_RX_DONE: u64 = 79;
 pub const SYS_NIC_TX: u64 = 80;
 pub const SYS_SYMLINK: u64 = 81;
 pub const SYS_READLINK: u64 = 82;
+pub const SYS_GPU_SET_RESOLUTION: u64 = 83;
 
 pub const WNOHANG: u64 = 1;
 
@@ -112,6 +113,7 @@ pub enum SyscallError {
     BadAddress = 5,
     WouldBlock = 6,
     ResourceExhausted = 7,
+    NotSupported = 8,
 }
 
 impl SyscallError {
@@ -133,6 +135,7 @@ impl SyscallError {
             5 => Some(Self::BadAddress),
             6 => Some(Self::WouldBlock),
             7 => Some(Self::ResourceExhausted),
+            8 => Some(Self::NotSupported),
             _ => Some(Self::Unknown),
         }
     }
@@ -149,6 +152,7 @@ impl core::fmt::Display for SyscallError {
             Self::BadAddress => f.write_str("bad address"),
             Self::WouldBlock => f.write_str("would block"),
             Self::ResourceExhausted => f.write_str("resource exhausted"),
+            Self::NotSupported => f.write_str("not supported"),
         }
     }
 }
@@ -562,9 +566,19 @@ pub fn gpu_move_cursor(x: u32, y: u32) {
     syscall(SYS_GPU_MOVE_CURSOR, x as u64, y as u64, 0, 0);
 }
 
+/// Request a GPU resolution change. On success, writes the new
+/// [`FramebufferInfo`](crate::FramebufferInfo) to `info_out`.
+///
+/// # Safety
+/// `info_out` must point to a writable buffer of at least
+/// `size_of::<FramebufferInfo>()` bytes.
+pub unsafe fn gpu_set_resolution(width: u32, height: u32, info_out: *mut u8) -> Result<(), SyscallError> {
+    check_unit(syscall(SYS_GPU_SET_RESOLUTION, width as u64, height as u64, info_out as u64, 0))
+}
+
 /// Set the active keyboard layout by name. Returns `true` on success.
-pub fn set_keyboard_layout(name: &str) -> bool {
-    syscall(SYS_SET_KEYBOARD_LAYOUT, name.as_ptr() as u64, name.len() as u64, 0, 0) != 0
+pub fn set_keyboard_layout(name: &str) -> Result<(), SyscallError> {
+    check_unit(syscall(SYS_SET_KEYBOARD_LAYOUT, name.as_ptr() as u64, name.len() as u64, 0, 0))
 }
 
 /// Shut down the machine. Does not return.

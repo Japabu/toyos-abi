@@ -8,3 +8,11 @@ pub struct NicInfo {
     pub rx_buf_count: u8,
     pub net_hdr_size: u8,
 }
+
+impl NicInfo {
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            core::slice::from_raw_parts(self as *const Self as *const u8, core::mem::size_of::<Self>())
+        }
+    }
+}
